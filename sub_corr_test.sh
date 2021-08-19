@@ -3,7 +3,7 @@
 #SBATCH -N 8
 #SBATCH -q debug
 #SBATCH -C haswell
-module load anaconda3
+#module load anaconda3
 source activate mdcwxdes
 
 #cat << EOF > sub_corr_test.sl 
@@ -13,7 +13,7 @@ source activate mdcwxdes
 #SBATCH -q debug
 #SBATCH -C haswell
 
-python corr_test.py
+srun -n 10 python corr_test.py
 
 #EOF
 

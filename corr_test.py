@@ -5,23 +5,29 @@ from astropy.io import fits
 import numpy as np
 import matplotlib.pyplot as plt
 
-filename = "/global/cfs/cdirs/des/data_actxdes/des_data/save_gold.h5"
+#filename = "/global/cfs/cdirs/des/data_actxdes/des_data/save_gold.h5"
 
-full_cat = h5py.File(filename,'r')
+#full_cat = h5py.File(filename,'r')
 
-des_ras, des_decs = np.array(full_cat['gold_ra']), np.array(full_cat['gold_dec'])
-dec_cut = np.where((des_decs >-30))[0]
-des_ras, des_decs = des_ras[dec_cut], des_decs[dec_cut]
+#des_ras, des_decs = np.array(full_cat['gold_ra']), np.array(full_cat['gold_dec'])
+#dec_cut = np.where((des_decs >-30))[0]
+#des_ras, des_decs = des_ras[dec_cut], des_decs[dec_cut]
 
-des_rand_ras, des_rand_decs = np.array(full_cat['rand_ra']), np.array(full_cat['rand_dec'])
-dec_cut = np.where((des_rand_decs >-30))[0]
-des_rand_ras, des_rand_decs = des_rand_ras[dec_cut], des_rand_decs[dec_cut]
+#des_rand_ras, des_rand_decs = np.array(full_cat['rand_ra']), np.array(full_cat['rand_dec'])
+#dec_cut = np.where((des_rand_decs >-30))[0]
+#des_rand_ras, des_rand_decs = des_rand_ras[dec_cut], des_rand_decs[dec_cut]
+
+gold = fits.open('des_gold_dec_cut.fits')
+gold_ras, gold_decs, gold_zs = np.array(gold[1].data['RADeg']), np.array(gold[1].data['decDeg']), np.array(gold[1].data['z'])
+
+gold_rand = fits.open('des_rand_dec_cut.fits')
+gold_rand_ras, gold_rand_decs, gold_rand_zs = np.array(gold_rand[1].data['RADeg']), np.array(gold_rand[1].data['decDeg']), np.array(gold_rand[1].data['z'])
 
 #cat_lim = int(1e8)
 #flags = np.random.randint(len(des_ras), size = cat_lim)
-gold_cat = treecorr.Catalog(ra = des_ras, dec = des_decs, ra_units = 'deg', dec_units = 'deg')
+gold_cat = treecorr.Catalog(ra = gold_ras, dec = gold_decs, ra_units = 'deg', dec_units = 'deg')
 #flags = np.random.randint(len(des_rand_ras), size = cat_lim)
-gold_rand_cat = treecorr.Catalog(ra = des_rand_ras, dec = des_rand_decs, ra_units = 'deg', dec_units = 'deg')
+gold_rand_cat = treecorr.Catalog(ra = gold_rand_ras, dec = gold_rand_decs, ra_units = 'deg', dec_units = 'deg')
 
 mdcw = fits.open('MaDCoWS_DES_mass_v1.0.fits')
 mdcw_ras, mdcw_decs = np.array(mdcw[1].data['RADeg']), np.array(mdcw[1].data['decDeg'])
