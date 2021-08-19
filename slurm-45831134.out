@@ -1,0 +1,12 @@
+ModuleCmd_Load.c(244):ERROR:105: Unable to locate a modulefile for 'anaconda3'
+Traceback (most recent call last):
+  File "/global/u2/j/jorlo/mdcwxdes/corr_test.py", line 10, in <module>
+    full_cat = h5py.File(filename,'r')
+  File "/global/homes/j/jorlo/.conda/envs/mdcwxdes/lib/python3.9/site-packages/h5py/_hl/files.py", line 442, in __init__
+    fid = make_fid(name, mode, userblock_size,
+  File "/global/homes/j/jorlo/.conda/envs/mdcwxdes/lib/python3.9/site-packages/h5py/_hl/files.py", line 195, in make_fid
+    fid = h5f.open(name, flags, fapl=fapl)
+  File "h5py/_objects.pyx", line 54, in h5py._objects.with_phil.wrapper
+  File "h5py/_objects.pyx", line 55, in h5py._objects.with_phil.wrapper
+  File "h5py/h5f.pyx", line 96, in h5py.h5f.open
+OSError: [Errno 524] Unable to open file (unable to lock file, errno = 524, error message = 'Unknown error 524')
