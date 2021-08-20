@@ -5,68 +5,104 @@ from astropy.io import fits
 import numpy as np
 import matplotlib.pyplot as plt
 
-#filename = "/global/cfs/cdirs/des/data_actxdes/des_data/save_gold.h5"
+from astropy.cosmology import Planck15 as cosmo
+from astropy import constants as const
+from astropy import units as u
 
-#full_cat = h5py.File(filename,'r')
+# Constants
+# --------------------------------------------------------
 
-#des_ras, des_decs = np.array(full_cat['gold_ra']), np.array(full_cat['gold_dec'])
-#dec_cut = np.where((des_decs >-30))[0]
-#des_ras, des_decs = des_ras[dec_cut], des_decs[dec_cut]
+h100 = cosmo.H0/(1.00E+02*u.km*u.s**(-1)*u.Mpc**(-1))
+h  = const.h.value
 
-#des_rand_ras, des_rand_decs = np.array(full_cat['rand_ra']), np.array(full_cat['rand_dec'])
-#dec_cut = np.where((des_rand_decs >-30))[0]
-#des_rand_ras, des_rand_decs = des_rand_ras[dec_cut], des_rand_decs[dec_cut]
 
+
+
+
+print('load gold')
 gold = fits.open('des_gold_dec_cut.fits')
 gold_ras, gold_decs, gold_zs = np.array(gold[1].data['RADeg']), np.array(gold[1].data['decDeg']), np.array(gold[1].data['z'])
-
+print('load gold rands')
 gold_rand = fits.open('des_rand_dec_cut.fits')
-gold_rand_ras, gold_rand_decs, gold_rand_zs = np.array(gold_rand[1].data['RADeg']), np.array(gold_rand[1].data['decDeg']), np.array(gold_rand[1].data['z'])
-
-#cat_lim = int(1e8)
-#flags = np.random.randint(len(des_ras), size = cat_lim)
-gold_cat = treecorr.Catalog(ra = gold_ras, dec = gold_decs, ra_units = 'deg', dec_units = 'deg')
-#flags = np.random.randint(len(des_rand_ras), size = cat_lim)
-gold_rand_cat = treecorr.Catalog(ra = gold_rand_ras, dec = gold_rand_decs, ra_units = 'deg', dec_units = 'deg')
-
+gold_rand_ras, gold_rand_decs = np.array(gold_rand[1].data['RADeg']), np.array(gold_rand[1].data['decDeg']) 
+print('here')
 mdcw = fits.open('MaDCoWS_DES_mass_v1.0.fits')
-mdcw_ras, mdcw_decs = np.array(mdcw[1].data['RADeg']), np.array(mdcw[1].data['decDeg'])
+mdcw_ras, mdcw_decs, mdcw_zs = np.array(mdcw[1].data['RADeg']), np.array(mdcw[1].data['decDeg']), np.array(mdcw[1].data['redshift'])
 dec_cut = np.where((mdcw_decs >-30))[0]
-mdcw_ras, mdcw_decs = mdcw_ras[dec_cut], mdcw_decs[dec_cut]
-mdcw_cat = treecorr.Catalog(ra = mdcw_ras, dec = mdcw_decs, ra_units = 'deg', dec_units = 'deg')
+mdcw_ras, mdcw_decs, mdcw_zs = mdcw_ras[dec_cut], mdcw_decs[dec_cut], mdcw_zs[dec_cut]
 
 mdcw_rand = fits.open('MaDCoWS_randoms_DES_mask.fits')
 mdcw_rand_ras, mdcw_rand_decs = np.array(mdcw_rand[1].data['RADeg']), np.array(mdcw_rand[1].data['decDeg'])
 dec_cut = np.where((mdcw_rand_decs >-30))[0]
-mdcw_ras, mdcw_decs = mdcw_rand_ras[dec_cut], mdcw_rand_decs[dec_cut]
+mdcw_ras_rand, mdcw_decs_rand = mdcw_rand_ras[dec_cut], mdcw_rand_decs[dec_cut]
+
+#Compute rr, as it's the same for all z bins
+print(' rand cats')
+gold_rand_cat = treecorr.Catalog(ra = gold_rand_ras, dec = gold_rand_decs, ra_units = 'deg', dec_units = 'deg')
 mdcw_rand_cat = treecorr.Catalog(ra = mdcw_rand_ras, dec = mdcw_rand_decs, ra_units = 'deg', dec_units = 'deg')
 
-d1d2 = treecorr.NNCorrelation(min_sep=1., max_sep=100., nbins=25.,
+
+
+zs = np.arange(0.75, 1.5, 0.025)
+xi_dir = {}
+
+for i in range(len(zs)-1):
+    print(zs[i])
+    gold_flags = np.where((gold_zs >= zs[i]) & (gold_zs < zs[i+1]))[0]
+    gold_cat = treecorr.Catalog(ra = gold_ras[gold_flags], dec = gold_decs[gold_flags], ra_units = 'deg', dec_units = 'deg')
+
+    mdcw_flags = np.where((mdcw_zs >= zs[i]) & (mdcw_zs < zs[i+1]))[0]
+    if len(mdcw_flags) == 0:
+        continue
+    mdcw_cat = treecorr.Catalog(ra = mdcw_ras[mdcw_flags], dec = mdcw_decs[mdcw_flags], ra_units = 'deg', dec_units = 'deg')
+
+    ang_dia_dist = cosmo.angular_diameter_distance((zs[i+1]+zs[i])/2)
+    ang_dia_dist *= u.radian**(-1)
+    #min_sep = 0.2h^-1 Mpc/ang_dia_dist = radians
+    
+    min_sep = 0.2*h100**(-1)*u.Mpc
+    max_sep = 60*h100**(-1)*u.Mpc
+    
+    min_sep = (min_sep/ang_dia_dist).to(u.arcmin).value
+    max_sep = (max_sep/ang_dia_dist).to(u.arcmin).value
+
+    print(min_sep, max_sep)
+    
+    d1d2 = treecorr.NNCorrelation(min_sep=min_sep, max_sep=max_sep, nbins=25.,
                             sep_units='arcmin')
-
-d1d2.process(gold_cat, mdcw_cat)
-
-d1r2 = treecorr.NNCorrelation(min_sep=1., max_sep=100., nbins=25.,
+    
+    print('dd')
+    d1d2.process(gold_cat, mdcw_cat)
+    
+    d1r2 = treecorr.NNCorrelation(min_sep=min_sep, max_sep=max_sep, nbins=25.,
                             sep_units='arcmin')
-
-d1r2.process(gold_cat, mdcw_rand_cat)
-
-d2r1 = treecorr.NNCorrelation(min_sep=1., max_sep=100., nbins=25.,
+    print('d1r2')
+    d1r2.process(gold_cat, mdcw_rand_cat)
+    
+    d2r1 = treecorr.NNCorrelation(min_sep=min_sep, max_sep=max_sep, nbins=25.,
                             sep_units='arcmin')
-
-d2r1.process(mdcw_cat, gold_rand_cat)
-
-r1r2 = treecorr.NNCorrelation(min_sep=1., max_sep=100., nbins=25.,
+    print('d2r1')
+    d2r1.process(mdcw_cat, gold_rand_cat)
+    
+    r1r2 = treecorr.NNCorrelation(min_sep=min_sep, max_sep=max_sep, nbins=25.,
                             sep_units='arcmin')
+    print('r1r2')
+    r1r2.process(gold_rand_cat, mdcw_rand_cat)
+    
+    print('dd ', d1d2.npairs)
+    print('d1r2 ', d1r2.npairs)
+    print('d2r1 ', d2r1.npairs)
+    print('rr ', r1r2.npairs)
 
-r1r2.process(gold_rand_cat, mdcw_rand_cat)
+    xi_dir[zs[i]] = {}
+    
+    xi, varxi = d1d2.calculateXi(r1r2, d1r2, d2r1)
 
-print('dd ', d1d2.npairs)
-print('d1r2 ', d1r2.npairs)
-print('d2r1 ', d2r1.npairs)
-print('rr ', r1r2.npairs)
+    xi_dir[zs[i]]['xi'] = xi
+    xi_dir[zs[i]]['varxi'] = varxi
+    xi_dir[zs[i]]['cluster_num'] = len(mdcw_flags)
+    xi_dir[zs[i]]['galaxy_num'] = len(gold_flags)
 
-xi, varxi = d1d2.calculateXi(r1r2, d1r2, d2r1)
 
 r = np.exp(d1d2.meanlogr)
 sig = np.sqrt(varxi)
