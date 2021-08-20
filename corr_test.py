@@ -4,6 +4,7 @@ import astropy
 from astropy.io import fits
 import numpy as np
 import matplotlib.pyplot as plt
+import pickle as pk
 
 from astropy.cosmology import Planck15 as cosmo
 from astropy import constants as const
@@ -103,6 +104,7 @@ for i in range(len(zs)-1):
     xi_dir[zs[i]]['cluster_num'] = len(mdcw_flags)
     xi_dir[zs[i]]['galaxy_num'] = len(gold_flags)
 
+pk.dump(xi_dir, 'xi_dir.pk')
 
 r = np.exp(d1d2.meanlogr)
 sig = np.sqrt(varxi)
