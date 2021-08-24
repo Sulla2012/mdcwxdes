@@ -37,10 +37,11 @@ mdcw_rand_ras, mdcw_rand_decs = np.array(mdcw_rand[1].data['RADeg']), np.array(m
 dec_cut = np.where((mdcw_rand_decs >-30))[0]
 mdcw_ras_rand, mdcw_decs_rand = mdcw_rand_ras[dec_cut], mdcw_rand_decs[dec_cut]
 
-#Compute rr, as it's the same for all z bins
+#Rands cat the same for all bins
 print(' rand cats')
-gold_rand_cat = treecorr.Catalog(ra = gold_rand_ras, dec = gold_rand_decs, ra_units = 'deg', dec_units = 'deg')
-mdcw_rand_cat = treecorr.Catalog(ra = mdcw_rand_ras, dec = mdcw_rand_decs, ra_units = 'deg', dec_units = 'deg')
+gold_rand_cat = treecorr.Catalog(ra = gold_rand_ras, dec = gold_rand_decs, ra_units = 'deg', dec_units = 'deg', npatch = 50)
+mdcw_rand_cat = treecorr.Catalog(ra = mdcw_rand_ras, dec = mdcw_rand_decs, ra_units = 'deg', dec_units = 'deg',
+        patch_centers=gold_rand_cat.patch_centers)
 
 
 
@@ -50,12 +51,14 @@ xi_dir = {}
 for i in range(len(zs)-1):
     print(zs[i])
     gold_flags = np.where((gold_zs >= zs[i]) & (gold_zs < zs[i+1]))[0]
-    gold_cat = treecorr.Catalog(ra = gold_ras[gold_flags], dec = gold_decs[gold_flags], ra_units = 'deg', dec_units = 'deg')
+    gold_cat = treecorr.Catalog(ra = gold_ras[gold_flags], dec = gold_decs[gold_flags], ra_units = 'deg', dec_units = 'deg', 
+            patch_centers=gold_rand_cat.patch_centers)
 
     mdcw_flags = np.where((mdcw_zs >= zs[i]) & (mdcw_zs < zs[i+1]))[0]
     if len(mdcw_flags) == 0:
         continue
-    mdcw_cat = treecorr.Catalog(ra = mdcw_ras[mdcw_flags], dec = mdcw_decs[mdcw_flags], ra_units = 'deg', dec_units = 'deg')
+    mdcw_cat = treecorr.Catalog(ra = mdcw_ras[mdcw_flags], dec = mdcw_decs[mdcw_flags], ra_units = 'deg', dec_units = 'deg', 
+            patch_centers=gold_rand_cat.patch_centers)
 
     ang_dia_dist = cosmo.angular_diameter_distance((zs[i+1]+zs[i])/2)
     ang_dia_dist *= u.radian**(-1)
@@ -69,8 +72,12 @@ for i in range(len(zs)-1):
 
     print(min_sep, max_sep)
     
+    
+    #According to the treecorr docs, jackkifing the randoms is not really neccesarry:
+    #https://rmjarvis.github.io/TreeCorr/_build/html/cov.html
+    #But we can add it later if needed, which is described above
     d1d2 = treecorr.NNCorrelation(min_sep=min_sep, max_sep=max_sep, nbins=25.,
-                            sep_units='arcmin')
+                            sep_units='arcmin',var_method='jackknife')
     
     print('dd')
     d1d2.process(gold_cat, mdcw_cat)
@@ -99,15 +106,30 @@ for i in range(len(zs)-1):
     
     xi, varxi = d1d2.calculateXi(r1r2, d1r2, d2r1)
 
+    cov = d1d2.cov
+    
     xi_dir[zs[i]]['xi'] = xi
     xi_dir[zs[i]]['varxi'] = varxi
     xi_dir[zs[i]]['cluster_num'] = len(mdcw_flags)
     xi_dir[zs[i]]['galaxy_num'] = len(gold_flags)
+    xi_dir[zs[i]]['cov'] = cov
+    
+    
+pk.dump(xi_dir, open('xi_dir.pk', "wb"))
 
-pk.dump(xi_dir, 'xi_dir.pk')
+cluster_sum = 0
+xi = 0
+var_xi = 0
+
+for key in xi_dir.keys():
+    xi += xi_dir[key]['cluster_num']*xi_dir[key]['xi']
+    cluster_sum += xi_dir[key]['cluster_num']
+    var_xi += xi_dir[key]['varxi']**2
+    
+xi /= cluster_sum
 
 r = np.exp(d1d2.meanlogr)
-sig = np.sqrt(varxi)
+sig = np.sqrt(var_xi)
 
 plt.plot(r, xi, color='blue')
 plt.plot(r, -xi, color='blue', ls=':')

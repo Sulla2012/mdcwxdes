@@ -1,17 +1,13 @@
 #!/bin/bash -l
-#SBATCH -t 30:00
-#SBATCH -N 8
-#SBATCH -q debug
+
+#SBATCH -N 10
 #SBATCH -C haswell
+#SBATCH -q regular
+#SBATCH -t 022:30:00
+
 #module load anaconda3
 source activate mdcwxdes
 
-#cat << EOF > sub_corr_test.sl 
-#!/bin/bash
-#SBATCH -t 30:00
-#SBATCH -N 8
-#SBATCH -q debug
-#SBATCH -C haswell
 
 srun -n 10 python corr_test.py
 
