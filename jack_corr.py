@@ -45,10 +45,13 @@ print(len(mdcw_zs))
 
 try: 
     xi_dir = pk.load(open('./jack_xi_dir.dl', 'rb'))
+    w_dir = pk.load(open('./jack_w_dir.dl', 'rb'))
 except:
     xi_dir = {}
+    w_dir = {}
 
-zs = np.arange(0.75, 1.5, 0.025)
+zs = np.arange(0.75, 1.525, 0.025)
+
 for i in range(len(mdcw_ras)):
     
     #Skip completed xi's
@@ -59,13 +62,16 @@ for i in range(len(mdcw_ras)):
     #Skip clusters w/o z
     if np.isnan(mdcw_zs[i]): continue
     
+    #Skip one cluster which is above highest z bin
+    if mdcw_zs[i] > 1.5: continue
+
     #Figure out what z bin it's in
     j = (mdcw_zs[i]-0.75)//0.025
     j = int(j)
-    print(mdcw_zs[i], zs[j])
+    print(zs[j],mdcw_zs[i], zs[j+1])
     gold_flags = np.where((gold_zs >= zs[j]) & (gold_zs < zs[j+1]))[0]
     gold_cat = treecorr.Catalog(ra = gold_ras[gold_flags], dec = gold_decs[gold_flags], ra_units = 'deg', dec_units = 'deg')
-    print([mdcw_ras[i]])
+   
     mdcw_cat = treecorr.Catalog( ra = [mdcw_ras[i]], dec = [mdcw_decs[i]], ra_units = 'deg', dec_units = 'deg')
 
     ang_dia_dist = cosmo.angular_diameter_distance((zs[j+1]+zs[j])/2)
@@ -105,7 +111,8 @@ for i in range(len(mdcw_ras)):
     d2r1.npairs = d2r1.npairs - d2r1_jack.npairs
 
     xi = 0
-
+    N_cl = 0
+    sigmabar_g = 0
     for k, z in enumerate(zs):
         #Somewhat inelligant way of stopping at the last bin
         if k == len(zs)-1: continue
@@ -113,9 +120,12 @@ for i in range(len(mdcw_ras)):
         mdcw_flags = np.where((mdcw_zs >= zs[k]) & (mdcw_zs < zs[k+1]))[0]
         if k == j:
             xi_curr, varxi = d1d2.calculateXi(r1r2, d1r2, d2r1)
-            xi += xi_curr * len(mdcw_flags)-1
-
+            xi += xi_curr * (len(mdcw_flags)-1)
+            N_cl += len(mdcw_flags)-1
+            sigmabar_g += len(gold_flags)/4143.2*(len(mdcw_flags)-1)
         else:
+            N_cl += len(mdcw_flags)
+            sigmabar_g += len(gold_flags)/4143.2*len(mdcw_flags)
             try:
                 #Load the existing dd, dr, and rr per redshift bin. Note for some redshift bins
                 #There are no clusters, so there is no xi. This it the reason for the try
@@ -131,9 +141,17 @@ for i in range(len(mdcw_ras)):
             xi_curr, varxi = d1d2_curr.calculateXi(r1r2_curr, d1r2_curr, d2r1_curr)
 
             xi += xi_curr * len(mdcw_flags)
-
-    xi_dir[i] = xi
+    print(N_cl)
+    w_dir[i] = xi[:]
+    print('w: ', w_dir[i])
+    xi_new = xi / N_cl
+    sigmabar_g /= N_cl
+    print(sigmabar_g)
+    xi_new *= sigmabar_g
+    print('xi: ', xi_new)
+    print('w: ' ,w_dir[i])
+    xi_dir[i] = xi_new
 
     pk.dump(xi_dir, open('jack_xi_dir.dl', 'wb'))
-
+    pk.dump(w_dir, open('jack_w_dir.dl', 'wb'))
 
